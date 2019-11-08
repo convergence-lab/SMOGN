@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.neighbors import NearestNeighbors
 
 
 class SMOGN:
@@ -8,26 +9,45 @@ class SMOGN:
     This Object is implementation of SMOGN
     """
 
-    def __init__(self, threshold, over_sampling_ratio, under_sampling_ratio, k, dist=euclidean_distances):
+    def __init__(self, threshold, over_sampling_ratio, under_sampling_ratio, k, metric="minkowski"):
         self.threshold = threshold
         self.over_sampling_ratio = over_sampling_ratio
         self.under_sampling_ratio = under_sampling_ratio
         self.k = k
-        self.dist = dist
+        self.metric = metric
 
     def fit(self, X, y):
         self.relevances = self.relevance_fn(y)
-        X_bins_n = X[y < self.relevances]
-        y_bins_n = y[y < self.relevances]
-        X_bins_r = X[y >= self.relevances]
-        y_bins_r = y[y > self.relevances]
-        X_newD = X_bins_r
-        y_newD = y_bins_r
+        B = np.hstack(X, y)
+        Bn = B[self.relevances < self.threshold]
+        Br = B[self.relevances > self.threshold]
+        newD = Br
 
         if self.under_sampling_ratio > 0.:
-            for Xn, yn in zip(X_bins_n, y_bins_n):
+            sample_num = len(X) * self.under_sampling_ratio
+            normal_case = np.random.choice(Bn, size=sample_num)
+            newD += [normal_case]
 
         if self.over_sampling_ratio > 0.:
+            sample_num = len(X) * self.over_sampling_ratio
+            nn = NearestNeighbors(metric=self.metric)
+            nn.fit(B)
+            new_samples = []
+            for bi in Br:
+                print(i)
+                dist, neighbors_idx = nn.kneighbors(bi, n_neighbors=self.k)
+                maxD = np.median(dist) / 2
+                for i in sample_num:
+                    neighbors = np.hstack(dist, neighbors_idx)
+                    sample = np.random.choice(neighbors)
+                    dist, idx = sample
+                    if dist < maxD:
+                        new_samples += [bi]  # FIXME: use SMOTER
+                    else:
+                        pert = min(maxD, 0.02)
+                        new_samples += [bi]  # FIXME : user Gaussian noise
+            newD += np.array(new_samples)
+        return np.hstack(newD)
 
     def relevance_fn(self, y, k=0.5, eps=1e-8):
         y_tilda = np.median(y)
@@ -55,5 +75,5 @@ class SMOGN:
         s1 = np.log(1. / 3.) / (xa - xb)
         s2 = np.log(1. / 3.) / (xc - xd)
         relevances = np.where(y <= y_tilda, c1 /
-                              (c1+np.exp(s1*y)), c2/(c2+np.exp(s2*y)))
+                              (c1 + np.exp(s1 * y)), c2 / (c2 + np.exp(s2 * y)))
         return relevances
