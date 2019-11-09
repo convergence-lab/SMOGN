@@ -1,3 +1,6 @@
+# SMOGN
+# Author: Masashi Kimura
+
 import numpy as np
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.neighbors import NearestNeighbors
