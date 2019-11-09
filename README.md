@@ -67,4 +67,4 @@ Avg Improvemnet 6.59 %
 
 ## References
 
-- Wang, B., Zheng, H., Liang, X., Chen, Y., Lin, L., & Yang, M. (n.d.). Toward Characteristic-Preserving Image-based Virtual Try-On Network. Retrieved from https://github.com/sergeywong/cp-vton.
+- Branco, P., Ribeiro, R. P., Torgo, L., Krawczyk, B., & Moniz, N. (2017). SMOGN: a Pre-processing Approach for Imbalanced Regression. In Proceedings of Machine Learning Research (Vol. 74).
