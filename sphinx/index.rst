@@ -10,7 +10,7 @@ Welcome to SMOGN's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
+   smogn
 
 Indices and tables
 ==================
