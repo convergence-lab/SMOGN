@@ -7,49 +7,145 @@ class SMOGN:
     """Class performe over and under sampling for regression data.
 
     This Object is implementation of SMOGN
+
+    Attribuites:
+        threshold (float):            
+            threshold of rare example. [0, 1]
+
+        over_sampling_ratio (float):  
+            ratio of over sample rare example. [0, 1]
+
+        under_sampling_ratio (float): 
+            ratio of under sample normal example. [0, 1]
+
+        k (int):                      
+            number of nearest neighbors
+
+        relevanse_base (float):       
+            base parameter of relevance_fn
+
+        pert (float):                 
+            pertubation parameter of gaussian noise
+
+        metric (str):                 
+            metric of distance.
+
+        relevances (np.array):        
+            relevance values
     """
 
-    def __init__(self, threshold, over_sampling_ratio, under_sampling_ratio, k, metric="minkowski"):
+    def __init__(self, threshold=0.95, over_sampling_ratio=0.1, under_sampling_ratio=1.0, k=10, relevanse_base=0.5, pert=0.02, metric="minkowski"):
+        """
+        initialize SMOGN
+
+        Args:
+            threshold (float):            
+                threshold of rare example. [0, 1]
+
+            over_sampling_ratio (float):  
+                ratio of over sample rare example. [0, 1]
+
+            under_sampling_ratio (float): 
+                ratio of under sample normal example. [0, 1]
+
+            k (int):                      
+                number of nearest neighbors
+
+            relevanse_base (float):       
+                base parameter of relevance_fn
+
+            pert (float):                 
+                pertubation parameter of gaussian noise
+
+            metric (str):                 
+                metric of distance.
+        """
         self.threshold = threshold
         self.over_sampling_ratio = over_sampling_ratio
         self.under_sampling_ratio = under_sampling_ratio
         self.k = k
+        self.relevance_base = relevanse_base
         self.metric = metric
+        self.pert = pert
 
-    def fit(self, X, y):
-        self.relevances = self.relevance_fn(y)
-        B = np.hstack(X, y)
+    def fit_transform(self, X, y):
+        """
+        Args:
+            X (np.array): 
+                training examples
+
+            y (np.array): 
+                target examples
+
+        Returns:
+            newX (np.array): 
+                new training examples
+
+            newy (np.array): 
+                new target examples
+        """
+        self.relevances = self.relevance_fn(y, self.relevance_base)
+        B = np.hstack([X, np.expand_dims(y, 1)])
         Bn = B[self.relevances < self.threshold]
         Br = B[self.relevances > self.threshold]
-        newD = Br
+        newD = [Br]
 
-        if self.under_sampling_ratio > 0.:
-            sample_num = len(X) * self.under_sampling_ratio
-            normal_case = np.random.choice(Bn, size=sample_num)
+        if self.under_sampling_ratio < 1.:
+            sample_num = int(len(Br) * self.under_sampling_ratio)
+            inds = np.arange(len(Bn), dtype=np.int)
+            normal_case = Bn[np.random.choice(inds, size=sample_num)]
             newD += [normal_case]
+        else:
+            newD += [Bn]
 
         if self.over_sampling_ratio > 0.:
-            sample_num = len(X) * self.over_sampling_ratio
+            sample_num = int(len(Bn) * self.over_sampling_ratio)
             nn = NearestNeighbors(metric=self.metric)
             nn.fit(B)
             new_samples = []
-            for bi in Br:
-                print(i)
-                dist, neighbors_idx = nn.kneighbors(bi, n_neighbors=self.k)
-                maxD = np.median(dist) / 2
-                for i in sample_num:
-                    neighbors = np.hstack(dist, neighbors_idx)
-                    sample = np.random.choice(neighbors)
-                    dist, idx = sample
-                    if dist < maxD:
-                        new_samples += [bi]  # FIXME: use SMOTER
-                    else:
-                        pert = min(maxD, 0.02)
-                        new_samples += [bi]  # FIXME : user Gaussian noise
-            newD += np.array(new_samples)
-        return np.hstack(newD)
+            i = 0
+            dist, neighbors_idx = nn.kneighbors(Br, n_neighbors=self.k + 1)
+            for i in range(sample_num):
+                idx = np.random.randint(len(Br))
+                rare_sample = Br[idx]
+                rnd_i = np.random.randint(1, self.k + 1)
+                dist_i, idx_i = dist[idx][rnd_i], neighbors_idx[idx][rnd_i]
+                neighbor_sample = B[idx_i]
+                maxD = np.median(dist[idx]) / 2.
+                std = np.std(B)
+                if dist_i < maxD:
+                    diff = rare_sample - neighbor_sample
+                    #shift = np.random.rand() * diff
+                    shift = np.clip(np.abs(np.random.randn()), 0, 1) * diff
+                    new_sample = rare_sample + shift
+                    new_samples += [new_sample]
+                else:
+                    pert = min(maxD, self.pert)
+                    new_sample = rare_sample + np.random.randn() * std * pert
+                    new_samples += [new_sample]
+            newD += [new_samples]
+        newD = np.vstack(newD)
+        newX = newD[:, :-1]
+        newy = newD[:, -1]
+        return newX, newy
 
     def relevance_fn(self, y, k=0.5, eps=1e-8):
+        """
+        calcuate relevance
+
+        Args:
+            y: np.array
+                target examples
+
+            k: float
+                relevance base
+
+            esp: float
+                small value to avoid zero divition
+        Returns:
+        relevance values: np.array
+            relevance values of y
+        """
         y_tilda = np.median(y)
         miny = np.min(y)
         maxy = np.max(y)
