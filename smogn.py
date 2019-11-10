@@ -1,9 +1,12 @@
 # SMOGN
 # Author: Masashi Kimura
 
+import pandas as pd
 import numpy as np
+from copy import copy
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import LabelEncoder
 
 
 class SMOGN:
@@ -12,55 +15,55 @@ class SMOGN:
     This Object is implementation of SMOGN
 
     Attribuites:
-        threshold (float):            
+        threshold (float):
             threshold of rare example. [0, 1]
 
-        over_sampling_ratio (float):  
+        over_sampling_ratio (float):
             ratio of over sample rare example. [0, 1]
 
-        under_sampling_ratio (float): 
+        under_sampling_ratio (float):
             ratio of under sample normal example. [0, 1]
 
-        k (int):                      
+        k (int):
             number of nearest neighbors
 
-        relevanse_base (float):       
+        relevanse_base (float):
             base parameter of relevance_fn
 
-        pert (float):                 
+        pert (float):
             pertubation parameter of gaussian noise
 
-        metric (str):                 
+        metric (str):
             metric of distance.
 
-        relevances (np.array):        
+        relevances (np.array):
             relevance values
     """
 
-    def __init__(self, threshold=0.95, over_sampling_ratio=0.1, under_sampling_ratio=1.0, k=10, relevanse_base=0.5, pert=0.02, metric="minkowski"):
+    def __init__(self, threshold=0.5, over_sampling_ratio=1.0, under_sampling_ratio=1.0, k=10, relevanse_base=0.5, pert=0.02, metric="minkowski"):
         """
         initialize SMOGN
 
         Args:
-            threshold (float):            
+            threshold (float):
                 threshold of rare example. [0, 1]
 
-            over_sampling_ratio (float):  
+            over_sampling_ratio (float):
                 ratio of over sample rare example. [0, 1]
 
-            under_sampling_ratio (float): 
+            under_sampling_ratio (float):
                 ratio of under sample normal example. [0, 1]
 
-            k (int):                      
+            k (int):
                 number of nearest neighbors
 
-            relevanse_base (float):       
+            relevanse_base (float):
                 base parameter of relevance_fn
 
-            pert (float):                 
+            pert (float):
                 pertubation parameter of gaussian noise
 
-            metric (str):                 
+            metric (str):
                 metric of distance.
         """
         self.threshold = threshold
@@ -71,66 +74,72 @@ class SMOGN:
         self.metric = metric
         self.pert = pert
 
-    def fit_transform(self, X, y):
+    def fit_transform(self, X, target_column):
         """
         Args:
-            X (np.array): 
+            X (pd.DataFrame):
                 training examples
-
-            y (np.array): 
-                target examples
-
         Returns:
-            newX (np.array): 
+            newX (np.array):
                 new training examples
-
-            newy (np.array): 
-                new target examples
         """
-        self.relevances = self.relevance_fn(y, self.relevance_base)
-        B = np.hstack([X, np.expand_dims(y, 1)])
-        Bn = B[self.relevances < self.threshold]
-        Br = B[self.relevances > self.threshold]
-        newD = [Br]
+        self.relevances = self.relevance_fn(X[target_column].values, self.relevance_base)
+
+        encoder = LabelEncoder()
+        categorical_columns = []
+        nominal_columns = []
+        for col in X:
+            if X[col].dtype == "object":
+                categorical_columns += [col]
+            else:
+                nominal_columns += [col]
+        for col in categorical_columns:
+            X[col] = encoder.fit_transform(X[col])
+
+        Xn = X.iloc[self.relevances < self.threshold]
+        Xr = X.iloc[self.relevances > self.threshold]
+        newD = [Xr]
 
         if self.under_sampling_ratio < 1.:
-            sample_num = int(len(Br) * self.under_sampling_ratio)
-            inds = np.arange(len(Bn), dtype=np.int)
-            normal_case = Bn[np.random.choice(inds, size=sample_num)]
+            sample_num = int(len(Xr) * self.under_sampling_ratio)
+            normal_case = Xn.sample(n=sample_num)
             newD += [normal_case]
         else:
-            newD += [Bn]
+            newD += [Xn]
 
         if self.over_sampling_ratio > 0.:
-            sample_num = int(len(Bn) * self.over_sampling_ratio)
+            sample_num = int(len(Xn) * self.over_sampling_ratio)
             nn = NearestNeighbors(metric=self.metric)
-            nn.fit(B)
+            nn.fit(X)
             new_samples = []
             i = 0
-            dist, neighbors_idx = nn.kneighbors(Br, n_neighbors=self.k + 1)
+            dist, neighbors_idx = nn.kneighbors(Xr, n_neighbors=self.k + 1)
             for i in range(sample_num):
-                idx = np.random.randint(len(Br))
-                rare_sample = Br[idx]
+                idx = np.random.randint(len(Xr))
+                rare_sample = Xr.iloc[idx]
                 rnd_i = np.random.randint(1, self.k + 1)
                 dist_i, idx_i = dist[idx][rnd_i], neighbors_idx[idx][rnd_i]
-                neighbor_sample = B[idx_i]
+                neighbor_sample = X.iloc[idx_i]
                 maxD = np.median(dist[idx]) / 2.
-                std = np.std(B)
-                if dist_i < maxD:
-                    diff = rare_sample - neighbor_sample
-                    #shift = np.random.rand() * diff
-                    shift = np.clip(np.abs(np.random.randn()), 0, 1) * diff
-                    new_sample = rare_sample + shift
-                    new_samples += [new_sample]
-                else:
-                    pert = min(maxD, self.pert)
-                    new_sample = rare_sample + np.random.randn() * std * pert
-                    new_samples += [new_sample]
-            newD += [new_samples]
-        newD = np.vstack(newD)
-        newX = newD[:, :-1]
-        newy = newD[:, -1]
-        return newX, newy
+                std = np.std(X)
+                new_sample = pd.Series([0.] * len(X.columns), index=X.columns)
+                for ci, col in enumerate(X):
+                    if col in categorical_columns:
+                        items = list(set(X[col]))
+                        new_sample[col] = items[np.random.randint(len(items))]
+                    else:
+                        if dist_i < maxD:
+                            diff = rare_sample[col] - neighbor_sample[col]
+                            # shift = np.random.rand() * diff
+                            shift = np.clip(np.abs(np.random.randn()), 0, 1) * diff
+                            new_sample[col] = rare_sample[col] + shift
+                        else:
+                            pert = min(maxD, self.pert)
+                            new_sample[col] = rare_sample[col] + np.random.randn() * std[ci] * pert
+                new_samples += [new_sample]
+            newD += [pd.DataFrame(new_samples)]
+        newD = pd.concat(newD)
+        return newD
 
     def relevance_fn(self, y, k=0.5, eps=1e-8):
         """
