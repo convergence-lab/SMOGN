@@ -142,7 +142,7 @@
 <span id="smogn-module"></span><h2>smogn module<a class="headerlink" href="#module-smogn" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="smogn.SMOGN">
-<em class="property">class </em><code class="sig-prename descclassname">smogn.</code><code class="sig-name descname">SMOGN</code><span class="sig-paren">(</span><em class="sig-param">threshold=0.95</em>, <em class="sig-param">over_sampling_ratio=0.1</em>, <em class="sig-param">under_sampling_ratio=1.0</em>, <em class="sig-param">k=10</em>, <em class="sig-param">relevanse_base=0.5</em>, <em class="sig-param">pert=0.02</em>, <em class="sig-param">metric='minkowski'</em><span class="sig-paren">)</span><a class="headerlink" href="#smogn.SMOGN" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">smogn.</code><code class="sig-name descname">SMOGN</code><span class="sig-paren">(</span><em class="sig-param">threshold=0.5</em>, <em class="sig-param">over_sampling_ratio=1.0</em>, <em class="sig-param">under_sampling_ratio=1.0</em>, <em class="sig-param">k=10</em>, <em class="sig-param">relevanse_base=0.5</em>, <em class="sig-param">pert=0.02</em>, <em class="sig-param">metric='minkowski'</em><span class="sig-paren">)</span><a class="headerlink" href="#smogn.SMOGN" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Class performe over and under sampling for regression data.</p>
 <p>This Object is implementation of SMOGN</p>
@@ -169,21 +169,13 @@
 </dl>
 <dl class="method">
 <dt id="smogn.SMOGN.fit_transform">
-<code class="sig-name descname">fit_transform</code><span class="sig-paren">(</span><em class="sig-param">X</em>, <em class="sig-param">y</em><span class="sig-paren">)</span><a class="headerlink" href="#smogn.SMOGN.fit_transform" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">fit_transform</code><span class="sig-paren">(</span><em class="sig-param">X</em>, <em class="sig-param">target_column</em><span class="sig-paren">)</span><a class="headerlink" href="#smogn.SMOGN.fit_transform" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>X</strong> (<em>np.array</em>) – training examples</p></li>
-<li><p><strong>y</strong> (<em>np.array</em>) – target examples</p></li>
-</ul>
+<dd class="field-odd"><p><strong>X</strong> (<em>pd.DataFrame</em>) – training examples</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><p>new training examples</p>
-<dl class="simple">
-<dt>newy (np.array):</dt><dd><p>new target examples</p>
-</dd>
-</dl>
-</p>
+<dd class="field-even"><p>new training examples</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>newX (np.array)</p>
