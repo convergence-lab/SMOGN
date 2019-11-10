@@ -40,7 +40,7 @@ class SMOGN:
             relevance values
     """
 
-    def __init__(self, threshold=0.5, over_sampling_ratio=1.0, under_sampling_ratio=1.0, k=10, relevanse_base=0.5, pert=0.02, metric="minkowski"):
+    def __init__(self, threshold=0.9, over_sampling_ratio=0.1, under_sampling_ratio=1.0, k=10, relevanse_base=0.5, pert=0.02, metric="minkowski"):
         """
         initialize SMOGN
 
@@ -93,11 +93,13 @@ class SMOGN:
                 categorical_columns += [col]
             else:
                 nominal_columns += [col]
+        X2 = copy(X)
         for col in categorical_columns:
-            X[col] = encoder.fit_transform(X[col])
+            X2[col] = encoder.fit_transform(X[col].astype(str).values)
 
         Xn = X.iloc[self.relevances < self.threshold]
         Xr = X.iloc[self.relevances > self.threshold]
+        Xr2 = X2.iloc[self.relevances > self.threshold]
         newD = [Xr]
 
         if self.under_sampling_ratio < 1.:
@@ -110,10 +112,10 @@ class SMOGN:
         if self.over_sampling_ratio > 0.:
             sample_num = int(len(Xn) * self.over_sampling_ratio)
             nn = NearestNeighbors(metric=self.metric)
-            nn.fit(X)
+            nn.fit(X2)
             new_samples = []
             i = 0
-            dist, neighbors_idx = nn.kneighbors(Xr, n_neighbors=self.k + 1)
+            dist, neighbors_idx = nn.kneighbors(Xr2, n_neighbors=self.k + 1)
             for i in range(sample_num):
                 idx = np.random.randint(len(Xr))
                 rare_sample = Xr.iloc[idx]
@@ -121,11 +123,11 @@ class SMOGN:
                 dist_i, idx_i = dist[idx][rnd_i], neighbors_idx[idx][rnd_i]
                 neighbor_sample = X.iloc[idx_i]
                 maxD = np.median(dist[idx]) / 2.
-                std = np.std(X)
+                std = np.std(X2)
                 new_sample = pd.Series([0.] * len(X.columns), index=X.columns)
-                for ci, col in enumerate(X):
+                for ci, col in enumerate(X2):
                     if col in categorical_columns:
-                        items = list(set(X[col]))
+                        items = [rare_sample[col], neighbor_sample[col]]
                         new_sample[col] = items[np.random.randint(len(items))]
                     else:
                         if dist_i < maxD:
@@ -137,7 +139,7 @@ class SMOGN:
                             pert = min(maxD, self.pert)
                             new_sample[col] = rare_sample[col] + np.random.randn() * std[ci] * pert
                 new_samples += [new_sample]
-            newD += [pd.DataFrame(new_samples)]
+            newD += [pd.DataFrame(new_samples, columns=X.columns)]
         newD = pd.concat(newD)
         return newD
 

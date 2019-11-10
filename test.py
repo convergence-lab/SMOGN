@@ -53,7 +53,7 @@ def test():
             np.random.seed(0)
             train_df, test_df = df.iloc[:int(len(X) * 0.8)], df[int(len(X) * 0.8):]
 
-            sm = SMOGN()
+            sm = SMOGN(threshold=0.5, over_sampling_ratio=1.0)
             new_df = sm.fit_transform(train_df, target_col)
 
             df3 = pd.concat([new_df, test_df])
