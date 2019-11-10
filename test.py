@@ -11,15 +11,26 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from glob import glob
 
+prameters = [
+    {
+        "threshold": 0.9,
+        "over_sampling_ratio": 0.05
+    },
+    {
+        "threshold": 0.5,
+        "over_sampling_ratio": 0.5
+    },
+]
+
+settings = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0]
+
 
 def test():
-    data_sets = glob("Imbalanced-Regression-DataSets/CSV_data/*.csv")
+    data_sets = sorted(glob("Imbalanced-Regression-DataSets/CSV_data/*.csv"))
 
     sum_improvement = 0
     n_data = 0
-    for dataset in data_sets:
-        if re.match(".*a[1-7].csv$", dataset) != None:
-            continue
+    for i, dataset in enumerate(data_sets):
         n_data += 1
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -28,10 +39,10 @@ def test():
             df = pd.read_csv(dataset)
             str_columns1 = []
             str_columns2 = []
-            for i, col in enumerate(df):
+            for j, col in enumerate(df):
                 if df[col].dtype == "object":
                     str_columns1 += [col]
-                    str_columns2 += [i]
+                    str_columns2 += [j]
             target_col = df.columns[0]
             df2 = pd.get_dummies(df, columns=str_columns1)
 
@@ -41,7 +52,7 @@ def test():
             X2 = scaler.fit_transform(X)
 
             np.random.seed(0)
-            train_X, test_X = X[:int(len(X) * 0.8)], X[int(len(X) * 0.8):]
+            train_X, test_X = X2[:int(len(X) * 0.8)], X2[int(len(X) * 0.8):]
             train_y, test_y = y[:int(len(y) * 0.8)], y[int(len(y) * 0.8):]
 
             cls0 = RandomForestRegressor(n_estimators=10)
@@ -53,7 +64,7 @@ def test():
             np.random.seed(0)
             train_df, test_df = df.iloc[:int(len(X) * 0.8)], df[int(len(X) * 0.8):]
 
-            sm = SMOGN(threshold=0.5, over_sampling_ratio=1.0)
+            sm = SMOGN(**prameters[settings[i]])
             new_df = sm.fit_transform(train_df, target_col)
 
             df3 = pd.concat([new_df, test_df])
