@@ -83,7 +83,7 @@ class SMOGN:
             newX (pd.DataFrame):
                 new training examples
         """
-        self.relevances = self.relevance_fn(X[target_column].values, self.relevance_base)
+        self.relevances = self.relevance_fn(X[target_column].values.astype(np.float32), self.relevance_base)
 
         encoder = LabelEncoder()
         categorical_columns = []
