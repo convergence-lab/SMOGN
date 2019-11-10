@@ -80,7 +80,7 @@ class SMOGN:
             X (pd.DataFrame):
                 training examples
         Returns:
-            newX (np.array):
+            newX (pd.DataFrame):
                 new training examples
         """
         self.relevances = self.relevance_fn(X[target_column].values, self.relevance_base)
